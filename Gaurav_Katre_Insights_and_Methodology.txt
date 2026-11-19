@@ -1,0 +1,211 @@
+DATABUZZ LTD. – OCTOBER 2026 POWER BI ANALYTICS CHALLENGE
+INSIGHTS AND METHODOLOGY
+Prepared by: Gaurav Katre
+==========================================================================================================================================================================================
+1. PROJECT OVERVIEW
+
+Project title: Sales Performance & Strategic Intelligence Dashboard
+Objective: Build an executive-ready Power BI dashboard to monitor revenue, cost, profit, product performance, regional performance, and product returns.
+Analysis period: January 2020 – June 2022.
+
+Important period note: The dataset contains only January–June sales for 2022. Therefore, 2022 should not be compared with a full year of 2021. Year-over-year comparisons for 2022 use January–June against January–June of the previous year.
+==========================================================================================================================================================================================
+2. DATA SOURCES
+
+The report uses these raw CSV sources hosted on GitHub and connected through Power BI's Web connector:
+1. Sales Data 2020
+2. Sales Data 2021
+3. Sales Data 2022
+4. Customer Lookup
+5. Calendar Lookup
+6. Product Lookup
+7. Product Categories Lookup
+8. Product Subcategories Lookup
+9. Returns Data
+10. Territory Lookup
+
+The original source files were brought into Power BI. Data preparation was performed in Power Query rather than manually editing source CSV files.
+==========================================================================================================================================================================================
+3. POWER QUERY / ETL METHODOLOGY
+
+- Imported source CSV files through Power BI's Web connector.
+- Checked column names, data types, missing values, invalid keys, and duplicate records.
+- Appended 2020, 2021, and 2022 sales queries into Fact_Sales.
+- Set OrderDate and StockDate to Date data types.
+- Set order identifiers to Text and numeric keys and quantities to appropriate whole-number types.
+- Used locale-aware date conversion where necessary.
+- Reviewed lookup-table keys to ensure dimension keys are unique.
+- Reviewed incomplete or invalid customer records and missing product attributes.
+- Kept staging sales queries for transformation lineage and disabled their load where appropriate.
+- Used Power Query transformations so preparation steps remain reproducible on refresh.
+
+Data Quality and Validation:
+Data quality checks included reviewing missing values, duplicate records, invalid key values, data types, and date formats. Only transformations actually performed in Power Query are described as completed steps. Invalid or missing values were reviewed before using the data in the model, and the final relationships and measures were checked for consistency.
+==========================================================================================================================================================================================
+4. DATA MODEL ARCHITECTURE
+
+The model uses separate fact and dimension tables rather than one flattened table.
+
+Fact tables:
+- Fact_Sales: sales order-line records and order quantities.
+- Fact_Returns: returned quantities by return date, product, and territory.
+
+Dimension tables:
+- Dim_Calendar: date attributes.
+- Dim_Product: product details, product cost, and product price.
+- Dim_ProductSubcategory: subcategory names and category keys.
+- Dim_ProductCategory: category names.
+- Dim_Customer: customer attributes.
+- Dim_Territory: region, country, and continent attributes.
+
+Core relationships:
+- Dim_Calendar[Date] → Fact_Sales[OrderDate] (active date relationship).
+- Dim_Product[ProductKey] → Fact_Sales[ProductKey].
+- Dim_Product[ProductKey] → Fact_Returns[ProductKey].
+- Dim_Customer[CustomerKey] → Fact_Sales[CustomerKey].
+- Dim_Territory[SalesTerritoryKey] → Fact_Sales[TerritoryKey].
+- Dim_ProductCategory[ProductCategoryKey] → Dim_ProductSubcategory[ProductCategoryKey].
+- Dim_ProductSubcategory[ProductSubcategoryKey] → Dim_Product[ProductSubcategoryKey].
+
+Relationships should use one-to-many cardinality where the dimension key is unique and single-direction filtering unless a specific, justified requirement calls for otherwise. Ensure product/category filters reach Fact_Returns correctly.
+==========================================================================================================================================================================================
+5. KEY DAX MEASURES
+
+Key DAX Measures Highlighted for Evaluation
+
+The three most important measures in this project are Revenue, Profit Margin %, and YoY Revenue Growth Jan-Jun %. These demonstrate business KPI calculation, profitability analysis, and comparable year-over-year performance analysis. Other supporting measures are included in the Power BI report.
+
+Revenue =
+SUMX(
+    Fact_Sales,
+    Fact_Sales[OrderQuantity] * RELATED(Dim_Product[ProductPrice])
+)
+=============================================================================================
+Total Cost =
+SUMX(
+    Fact_Sales,
+    Fact_Sales[OrderQuantity] * RELATED(Dim_Product[ProductCost])
+)
+==============================================================================================
+Total Profit = [Revenue] - [Total Cost]
+==============================================================================================
+Profit Margin % = DIVIDE([Total Profit], [Revenue], 0)
+==============================================================================================
+Total Orders = DISTINCTCOUNT(Fact_Sales[OrderNumber])
+==============================================================================================
+Total Quantity Sold = SUM(Fact_Sales[OrderQuantity])
+==============================================================================================
+Total Returns = SUM(Fact_Returns[ReturnQuantity])
+==============================================================================================
+Return Rate % = DIVIDE([Total Returns], [Total Quantity Sold], 0)
+==============================================================================================
+Comparable-period measures:
+
+Revenue Jan-Jun =
+VAR SelectedYear = SELECTEDVALUE(Dim_Calendar[Year])
+RETURN
+    CALCULATE(
+        [Revenue],
+        FILTER(
+            ALL(Dim_Calendar),
+            Dim_Calendar[Year] = SelectedYear
+                && MONTH(Dim_Calendar[Date]) <= 6
+        )
+    )
+==============================================================================================
+Revenue Jan-Jun Previous Year =
+VAR SelectedYear = SELECTEDVALUE(Dim_Calendar[Year])
+RETURN
+    CALCULATE(
+        [Revenue],
+        FILTER(
+            ALL(Dim_Calendar),
+            Dim_Calendar[Year] = SelectedYear - 1
+                && MONTH(Dim_Calendar[Date]) <= 6
+        )
+    )
+==============================================================================================
+YoY Revenue Growth Jan-Jun % =
+VAR CurrentRevenue = [Revenue Jan-Jun]
+VAR PreviousRevenue = [Revenue Jan-Jun Previous Year]
+RETURN
+    IF(
+        ISBLANK(PreviousRevenue),
+        BLANK(),
+        DIVIDE(CurrentRevenue - PreviousRevenue, PreviousRevenue)
+    )
+==============================================================================================
+
+Measure note: Revenue and cost are calculated from order quantity multiplied by product price and product cost in the product lookup. These figures depend on the correctness of product keys, prices, and costs.
+============================================================================================================================================================================================
+6. EXECUTIVE KPI SNAPSHOT
+
+Values displayed in the current dashboard:
+- Revenue: 24.98M
+- Total Cost: 14.47M
+- Total Profit: 10.51M
+- Profit Margin: 42.08%
+- Total Orders: approximately 25K
+- Total Quantity Sold: approximately 84K
+
+These values describe January 2020 through June 2022 and should be interpreted in context of the available data and measure definitions.
+
+Metric Calculation Note:
+Revenue is calculated using order quantity multiplied by product price from the product lookup table. Total cost is calculated using order quantity multiplied by product cost. These calculations represent estimated values based on the available lookup data and may differ from actual transaction revenue or cost if discounts, actual selling prices, or other transaction-level adjustments are not included in the dataset. Currency units should be confirmed from the source data before assigning a currency symbol.==========================================================================================================================================================================================
+7. KEY BUSINESS FINDINGS
+
+1. Revenue increased by 44.94% in 2021 compared with 2020, based on the dashboard's annual revenue comparison.
+2. Total revenue across the available period is approximately 24.98M.
+3. Overall profit margin is 42.08%.
+4. Accessories has the highest displayed category profit margin at 62.84%, followed by Clothing at 44.27% and Bikes at 41.25%.
+5. Bikes has the highest displayed category return rate at 3.07%. Clothing is at 2.16%, and Accessories is at 1.95%.
+6. Accessories accounts for 61.85% of returned quantity in the category-share visual. This is a share of all returned quantity, not the same metric as category return rate.
+7. Australia is the highest-revenue region in the displayed Top 5 Regions visual at approximately 7.4M. Southwest follows at approximately 4.8M.
+8. Mountain-200 product variants appear among the highest-profit products.
+
+Comparable January–June revenue shown in the dashboard:
+- 2020: 3,748,976.82
+- 2021: 2,974,825.81; change versus January–June 2020: -20.65%
+- 2022: 9,185,655.39; change versus January–June 2021: +208.78%
+
+January–June 2022 revenue is approximately 208.78% higher than January–June 2021 revenue based on the current dashboard figures. This unusually large increase requires validation against the source data, product prices, date filters, and DAX calculations before it is treated as a confirmed business trend. Both periods cover January through June, so the comparison uses the same six-month window.==========================================================================================================================================================================================
+8. STRATEGIC RECOMMENDATIONS
+
+1. Improve revenue growth monitoring: Compare like-for-like periods. For 2022, use January–June against January–June in prior years rather than comparing six months with a full year. Investigate the unusually large 2022 increase before drawing conclusions.
+2. Reduce avoidable product returns: Investigate the reasons for the higher Bikes return rate. Review product quality, fit, descriptions, packaging, and customer feedback before deciding on corrective action.
+3. Grow profitable Accessories sales: Evaluate opportunities to increase Accessories sales while monitoring margin and return performance.
+4. Improve regional performance: Review region-level revenue and profitability to identify growth opportunities and regions requiring further investigation.
+5. Protect profitability: Use product-level profit and margin analysis to identify high-performing products. Review low-margin products, pricing, discounts, and costs before making changes.
+6. Monitor performance consistently: Track revenue, profit, margin, orders, quantity, and return rates over time. Use consistent date windows and investigate anomalies before communicating conclusions.
+==========================================================================================================================================================================================
+9. DASHBOARD DESIGN AND INTERACTIVITY
+
+The report contains three pages:
+1. Sales Overview: KPI cards, revenue by category, top regions, top products by profit, monthly revenue and profit trend.
+2. Profitability & Growth: profit margin by category, share of returned quantity by category, monthly revenue growth, January–June year-over-year revenue growth, and return rate by category.
+3. Business Insights: key findings, business risks, growth opportunities, and strategic recommendations.
+
+Slicers include Year, Category, and Region. Page navigation and a clear-all-slicers control support interactive exploration.
+==========================================================================================================================================================================================
+10. VALIDATION AND INTERPRETATION NOTES
+
+Before final submission, confirm:
+
+- First-page subtitle and report footer both state January 2020 – June 2022.
+- Revenue and cost use the intended product price and cost fields.
+- Dimension keys are unique and relationships are active and correctly directed.
+- Product/category filters affect the returns fact table as intended.
+- The January–June YoY measure is used for comparable periods.
+- The 208.78% January–June 2022 growth figure has been checked against source data and calculations.
+- Monthly growth chart labels are legible and chronological.
+- Category share of returned quantity is not described as category return rate.
+- Findings and recommendations match the final PBIX.
+==========================================================================================================================================================================================
+11. CONCLUSION
+
+The dashboard combines sales performance, product profitability, regional revenue, and returns analysis in an interactive executive report. The main decision themes are to grow profitable sales, investigate Bikes returns, monitor regional opportunities, and compare periods consistently. Any unusually large growth result should be validated and explained before it is used to make a business decision.
+==========================================================================================================================================================================================
+
+Prepared for the Databuzz Ltd. October 2026 Power BI Analytics Challenge.
+Analysis period: January 2020 – June 2022
+Prepared by: Gaurav Katre
